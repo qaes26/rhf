@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>بحيرة الأماني - رهف</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Amiri:ital,wght@1,400;1,700&family=Cairo:wght@300;600&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #0f0c29;
+            background: linear-gradient(to bottom, #0f0c29, #302b63, #24243e);
+            overflow: hidden;
+            font-family: 'Cairo', sans-serif;
+        }
+
+        #canvas {
+            display: block;
+        }
+
+        .ui-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none;
+            z-index: 10;
+            width: 100%;
+        }
+
+        .main-text {
+            font-family: 'Amiri', serif;
+            font-size: 3.5rem;
+            color: #ffeb3b;
+            text-shadow: 0 0 20px rgba(255, 235, 59, 0.6), 0 0 40px rgba(255, 235, 59, 0.3);
+            opacity: 0;
+            transition: opacity 3s ease;
+            margin-bottom: 10px;
+        }
+
+        .sub-text {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1.1rem;
+            margin-top: 10px;
+            animation: fadeInOut 4s infinite;
+        }
+
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+        }
+
+        .hint {
+            position: absolute;
+            bottom: 30px;
+            width: 100%;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.9rem;
+            pointer-events: none;
+            animation: fadeOut 5s forwards 3s;
+        }
+        
+        @keyframes fadeOut {
+            to { opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ui-container">
+        <h1 id="nameTitle" class="main-text">رهف</h1>
+        <p id="loveMsg" class="sub-text" style="opacity: 0;">أنتِ كل دنيتي</p>
+    </div>
+
+    <div class="hint">اضغطي في أي مكان لإطلاق فانوس وكلمة حب ✨</div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        // قائمة كلمات الغزل المخصصة لرهف
+        const loveWords = [
+            "مرتي", 
+            "بنتي", 
+            "اميرتي", 
+            "عيوني", 
+            "قمري", 
+            "وتيني", 
+            "عشقي",
+            "يا روحي" // أضفت هذه لتكملة التنوع
+        ];
+
+        // متغيرات المشهد
+        let lanterns = [];
+        let stars = [];
+        let waterLevel;
+        let lanternCount = 0;
+        
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            waterLevel = height * 0.85; // مستوى الماء
+            createStars();
+        }
+        window.addEventListener('resize', resize);
+
+        // إنشاء النجوم في الخلفية
+        function createStars() {
+            stars = [];
+            for(let i=0; i<100; i++) {
+                stars.push({
+                    x: Math.random() * width,
+                    y: Math.random() * (height * 0.8), // النجوم فقط في السماء
+                    size: Math.random() * 2,
+                    alpha: Math.random(),
+                    twinkleSpeed: Math.random() * 0.05
+                });
+            }
+        }
+
+        // فئة الفانوس
+        class Lantern {
+            constructor(x, y, text) {
+                this.x = x;
+                this.y = y;
+                this.text = text; // النص المرفق
+                this.width = 30;
+                this.height = 45;
+                this.color = `hsl(${30 + Math.random() * 20}, 100%, 60%)`; // درجات البرتقالي والذهبي
+                this.speedY = 1 + Math.random() * 1.5;
+                this.wobble = Math.random() * Math.PI * 2;
+                this.wobbleSpeed = 0.05;
+                this.opacity = 0;
+                this.state = 'born'; // born, rising
+                this.scale = 0.1;
+            }
+
+            update() {
+                // مرحلة الظهور
+                if (this.state === 'born') {
+                    this.scale += 0.05;
+                    this.opacity += 0.05;
+                    if (this.scale >= 1) {
+                        this.state = 'rising';
+                        this.scale = 1;
+                        this.opacity = 1;
+                    }
+                } 
+                // مرحلة الصعود
+                else {
+                    this.y -= this.speedY;
+                    this.wobble += this.wobbleSpeed;
+                    this.x += Math.sin(this.wobble) * 0.5; // تمايل خفيف
+                    
+                    // تلاشي تدريجي عند الوصول للأعلى جداً
+                    if (this.y < -100) {
+                        this.opacity = 0; // سيتم حذفه لاحقاً
+                    }
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.scale(this.scale, this.scale);
+                ctx.globalAlpha = this.opacity;
+
+                // التوهج
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = this.color;
+
+                // جسم الفانوس
+                const grd = ctx.createLinearGradient(0, 0, 0, this.height);
+                grd.addColorStop(0, '#fff'); // قلب مضيء
+                grd.addColorStop(0.5, this.color);
+                grd.addColorStop(1, '#ff8f00');
+
+                ctx.fillStyle = grd;
+                ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+
+                // إطار معدني بسيط
+                ctx.strokeStyle = "rgba(0,0,0,0.1)";
+                ctx.lineWidth = 1;
+                ctx.strokeRect(-this.width/2, -this.height/2, this.width, this.height);
+
+                // رسم النص (كلمة الغزل) فوق الفانوس
+                ctx.shadowBlur = 0; // إلغاء التوهج للنص ليكون أوضح
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 16px 'Amiri', serif";
+                ctx.textAlign = "center";
+                // النص يظهر فوق الفانوس
+                ctx.fillText(this.text, 0, -this.height/2 - 15);
+
+                ctx.restore();
+            }
+
+            drawReflection() {
+                // رسم الانعكاس على الماء
+                if (this.y < waterLevel + 100 && this.opacity > 0.1) {
+                    const distToWater = Math.abs(this.y - waterLevel);
+                    // كلما ارتفع الفانوس، قل وضوح الانعكاس وطال
+                    const reflectionAlpha = (this.opacity * 0.3) - (distToWater * 0.0005);
+                    
+                    if (reflectionAlpha > 0) {
+                        ctx.save();
+                        // حساب موقع الانعكاس
+                        const reflectY = waterLevel + (waterLevel - this.y);
+                        
+                        ctx.translate(this.x, reflectY);
+                        ctx.scale(this.scale, -this.scale * 1.2); // انعكاس مشوه قليلاً عمودياً
+                        ctx.globalAlpha = reflectionAlpha;
+                        
+                        // تأثير التموج في الانعكاس
+                        const rippleOffset = Math.sin(this.wobble * 2 + Date.now() * 0.005) * 5;
+                        ctx.translate(rippleOffset, 0);
+
+                        ctx.shadowBlur = 30;
+                        ctx.shadowColor = this.color;
+                        
+                        ctx.fillStyle = this.color;
+                        ctx.fillRect(-this.width/2, -this.height/2, this.width, this.height);
+                        
+                        ctx.restore();
+                    }
+                }
+            }
+        }
+
+        // رسم الخلفية والسماء
+        function drawBackground() {
+            // السماء
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, waterLevel);
+            skyGrad.addColorStop(0, '#0f0c29');
+            skyGrad.addColorStop(1, '#302b63');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, width, waterLevel);
+
+            // الماء
+            const waterGrad = ctx.createLinearGradient(0, waterLevel, 0, height);
+            waterGrad.addColorStop(0, '#141e30');
+            waterGrad.addColorStop(1, '#000000');
+            ctx.fillStyle = waterGrad;
+            ctx.fillRect(0, waterLevel, width, height - waterLevel);
+
+            // خط الأفق (توهج خفيف)
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#4a69bd';
+            ctx.fillStyle = 'rgba(74, 105, 189, 0.3)';
+            ctx.fillRect(0, waterLevel - 1, width, 2);
+            ctx.shadowBlur = 0;
+        }
+
+        function drawStars() {
+            ctx.fillStyle = '#fff';
+            stars.forEach(star => {
+                star.alpha += Math.sin(Date.now() * star.twinkleSpeed) * 0.02;
+                ctx.globalAlpha = Math.max(0.1, Math.min(1, star.alpha));
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, width, height);
+            
+            drawBackground();
+            drawStars();
+
+            // رسم الانعكاسات أولاً
+            lanterns.forEach(l => l.drawReflection());
+
+            // رسم الفوانيس
+            for (let i = lanterns.length - 1; i >= 0; i--) {
+                const l = lanterns[i];
+                l.update();
+                l.draw();
+
+                // إزالة الفوانيس البعيدة جداً
+                if (l.y < -100) {
+                    lanterns.splice(i, 1);
+                }
+            }
+            
+            requestAnimationFrame(animate);
+        }
+
+        // التفاعل
+        function addLantern(x, y) {
+            // اختيار كلمة غزل بالتسلسل
+            const word = loveWords[lanternCount % loveWords.length];
+            
+            lanterns.push(new Lantern(x, y, word));
+            lanternCount++;
+            
+            // إظهار الاسم بعد 5 فوانيس
+            if (lanternCount === 5) {
+                document.getElementById('nameTitle').style.opacity = '1';
+            }
+            // إظهار رسالة الحب بعد 8 فوانيس
+            if (lanternCount === 8) {
+                document.getElementById('loveMsg').style.opacity = '1';
+                document.getElementById('loveMsg').style.animation = 'none'; 
+            }
+        }
+
+        canvas.addEventListener('click', (e) => {
+            addLantern(e.clientX, Math.min(e.clientY, waterLevel - 50));
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault(); 
+            for(let i=0; i<e.touches.length; i++) {
+                addLantern(e.touches[i].clientX, Math.min(e.touches[i].clientY, waterLevel - 50));
+            }
+        }, {passive: false});
+
+        // البدء
+        resize();
+        animate();
+        
+        // إطلاق فانوس تلقائي للترحيب يحمل أول كلمة
+        setTimeout(() => addLantern(width / 2, height * 0.7), 500);
+
+    </script>
+</body>
+</html>
+
